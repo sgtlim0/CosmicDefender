@@ -1,0 +1,15 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  overflow: hidden;
+  background: #0a0015;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  font-family: 'Segoe UI', sans-serif;
+}
