@@ -34,22 +34,6 @@ export default function App() {
     gameRef.current?.restartGame()
   }, [])
 
-  const handleDpadDown = useCallback((key: string) => {
-    gameRef.current?.setMobileInput(key, true)
-  }, [])
-
-  const handleDpadUp = useCallback((key: string) => {
-    gameRef.current?.setMobileInput(key, false)
-  }, [])
-
-  const handleFireStart = useCallback(() => {
-    gameRef.current?.setMobileShooting(true)
-  }, [])
-
-  const handleFireEnd = useCallback(() => {
-    gameRef.current?.setMobileShooting(false)
-  }, [])
-
   const isNewBest = ui.score > 0 && ui.score >= ui.bestScore && ui.phase === 'gameover'
 
   return (
@@ -93,7 +77,7 @@ export default function App() {
                 )}
                 <div className={styles.titleInstructions}>
                   <p>{'\uD83D\uDDA5\uFE0F \uD654\uC0B4\uD45C/WASD \uC774\uB3D9, \uC2A4\uD398\uC774\uC2A4 \uBC1C\uC0AC'}</p>
-                  <p>{'\uD83D\uDCF1 \uD130\uCE58 \uCEE8\uD2B8\uB864 \uC9C0\uC6D0'}</p>
+                  <p>{'\uD83D\uDCF1 \uD130\uCE58\uB85C \uC870\uC774\uC2A4\uD2F1 \uC870\uC791, \uC790\uB3D9 \uBC1C\uC0AC'}</p>
                   <p>{'\uD83C\uDFAF \uC801\uC744 \uD30C\uAD34\uD558\uACE0 \uC0B4\uC544\uB0A8\uC73C\uC138\uC694!'}</p>
                 </div>
               </div>
@@ -126,51 +110,9 @@ export default function App() {
           )}
         </div>
 
-        {ui.phase === 'playing' && (
-          <div className={styles.mobileControls}>
-            <div className={styles.dpad}>
-              <button
-                className={`${styles.dpadBtn} ${styles.dpadUp}`}
-                onTouchStart={(e) => { e.preventDefault(); handleDpadDown('ArrowUp') }}
-                onTouchEnd={() => handleDpadUp('ArrowUp')}
-                onMouseDown={() => handleDpadDown('ArrowUp')}
-                onMouseUp={() => handleDpadUp('ArrowUp')}
-              >{'\u25B2'}</button>
-              <button
-                className={`${styles.dpadBtn} ${styles.dpadLeft}`}
-                onTouchStart={(e) => { e.preventDefault(); handleDpadDown('ArrowLeft') }}
-                onTouchEnd={() => handleDpadUp('ArrowLeft')}
-                onMouseDown={() => handleDpadDown('ArrowLeft')}
-                onMouseUp={() => handleDpadUp('ArrowLeft')}
-              >{'\u25C0'}</button>
-              <button
-                className={`${styles.dpadBtn} ${styles.dpadRight}`}
-                onTouchStart={(e) => { e.preventDefault(); handleDpadDown('ArrowRight') }}
-                onTouchEnd={() => handleDpadUp('ArrowRight')}
-                onMouseDown={() => handleDpadDown('ArrowRight')}
-                onMouseUp={() => handleDpadUp('ArrowRight')}
-              >{'\u25B6'}</button>
-              <button
-                className={`${styles.dpadBtn} ${styles.dpadDown}`}
-                onTouchStart={(e) => { e.preventDefault(); handleDpadDown('ArrowDown') }}
-                onTouchEnd={() => handleDpadUp('ArrowDown')}
-                onMouseDown={() => handleDpadDown('ArrowDown')}
-                onMouseUp={() => handleDpadUp('ArrowDown')}
-              >{'\u25BC'}</button>
-            </div>
-            <button
-              className={styles.fireBtn}
-              onTouchStart={(e) => { e.preventDefault(); handleFireStart() }}
-              onTouchEnd={handleFireEnd}
-              onMouseDown={handleFireStart}
-              onMouseUp={handleFireEnd}
-            >{'\uD83D\uDD25'}</button>
-          </div>
-        )}
-
         <div className={styles.instructions}>
           <p>{'\uD83C\uDFAE \uD654\uC0B4\uD45C/WASD \uC774\uB3D9 | \uC2A4\uD398\uC774\uC2A4 \uBC1C\uC0AC'}</p>
-          <p>{'\u2764\uFE0F \uCCB4\uB825 | \u26A1 \uC5F0\uC0AC | \uD83D\uDEE1\uFE0F \uC2E4\uB4DC \uD30C\uC6CC\uC5C5'}</p>
+          <p>{'\uD83D\uDCF1 \uD130\uCE58\uB85C \uC870\uC774\uC2A4\uD2F1 \uC870\uC791 | \uC790\uB3D9 \uBC1C\uC0AC'}</p>
         </div>
 
         <footer className={styles.footer}>

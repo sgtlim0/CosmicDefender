@@ -1,4 +1,4 @@
-import type { GameState, Bullet, Enemy, Particle, Powerup } from './types.ts'
+import type { GameState, Bullet, Enemy, Particle, Powerup, ScorePopup } from './types.ts'
 import {
   CANVAS_WIDTH, CANVAS_HEIGHT,
   PLAYER_WIDTH, PLAYER_HEIGHT,
@@ -6,6 +6,18 @@ import {
   ENEMY_WIDTH, ENEMY_HEIGHT,
   POWERUP_SIZE,
 } from './types.ts'
+
+// Performance: reduce shadows on mobile
+const isMobile = 'ontouchstart' in window
+const SHADOW = isMobile ? 0.4 : 1
+
+export interface JoystickVisual {
+  readonly active: boolean
+  readonly baseX: number
+  readonly baseY: number
+  readonly thumbX: number
+  readonly thumbY: number
+}
 
 // ── Stars background (static) ──
 const stars: { x: number; y: number; size: number; speed: number }[] = []
@@ -30,7 +42,6 @@ function drawStars(ctx: CanvasRenderingContext2D, frame: number) {
 }
 
 function drawBackground(ctx: CanvasRenderingContext2D, frame: number) {
-  // Deep space gradient
   const grad = ctx.createRadialGradient(
     CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 0,
     CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH,
@@ -42,7 +53,6 @@ function drawBackground(ctx: CanvasRenderingContext2D, frame: number) {
 
   drawStars(ctx, frame)
 
-  // Border glow
   ctx.strokeStyle = 'rgba(0,255,255,0.3)'
   ctx.lineWidth = 2
   ctx.strokeRect(1, 1, CANVAS_WIDTH - 2, CANVAS_HEIGHT - 2)
@@ -55,7 +65,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, x: number, y: number, frame: 
   // Engine glow
   const flicker = Math.sin(frame * 0.3) * 3
   ctx.shadowColor = '#ff6600'
-  ctx.shadowBlur = 12
+  ctx.shadowBlur = 12 * SHADOW
   ctx.fillStyle = '#ff8800'
   ctx.beginPath()
   ctx.moveTo(cx - 6, y + PLAYER_HEIGHT)
@@ -66,7 +76,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, x: number, y: number, frame: 
 
   // Ship body
   ctx.shadowColor = '#00d4ff'
-  ctx.shadowBlur = 20
+  ctx.shadowBlur = 20 * SHADOW
   ctx.fillStyle = '#00d4ff'
   ctx.beginPath()
   ctx.moveTo(cx, y)
@@ -77,6 +87,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, x: number, y: number, frame: 
   ctx.fill()
 
   // Wing accents
+  ctx.shadowBlur = 0
   ctx.fillStyle = '#0088cc'
   ctx.beginPath()
   ctx.moveTo(cx, y + 8)
@@ -94,7 +105,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, x: number, y: number, frame: 
   // Cockpit
   ctx.fillStyle = '#ffffff'
   ctx.shadowColor = '#ffffff'
-  ctx.shadowBlur = 8
+  ctx.shadowBlur = 8 * SHADOW
   ctx.beginPath()
   ctx.arc(cx, cy - 2, 5, 0, Math.PI * 2)
   ctx.fill()
@@ -104,7 +115,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, x: number, y: number, frame: 
     ctx.strokeStyle = `rgba(0,255,200,${0.4 + Math.sin(frame * 0.15) * 0.3})`
     ctx.lineWidth = 2
     ctx.shadowColor = '#00ffc8'
-    ctx.shadowBlur = 15
+    ctx.shadowBlur = 15 * SHADOW
     ctx.beginPath()
     ctx.arc(cx, cy, 26, 0, Math.PI * 2)
     ctx.stroke()
@@ -115,11 +126,10 @@ function drawPlayer(ctx: CanvasRenderingContext2D, x: number, y: number, frame: 
 
 function drawBullets(ctx: CanvasRenderingContext2D, bullets: readonly Bullet[]) {
   ctx.shadowColor = '#00ffff'
-  ctx.shadowBlur = 12
+  ctx.shadowBlur = 12 * SHADOW
   for (const b of bullets) {
     ctx.fillStyle = '#00ffff'
     ctx.fillRect(b.x - BULLET_WIDTH / 2, b.y, BULLET_WIDTH, BULLET_HEIGHT)
-    // Trail
     ctx.fillStyle = 'rgba(0,255,255,0.3)'
     ctx.fillRect(b.x - BULLET_WIDTH / 2, b.y + BULLET_HEIGHT, BULLET_WIDTH, 8)
   }
@@ -138,9 +148,8 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, frame: number) {
   const color = colors[e.kind] || colors.normal
 
   ctx.shadowColor = color.glow
-  ctx.shadowBlur = 15
+  ctx.shadowBlur = 15 * SHADOW
 
-  // Enemy body (inverted triangle)
   ctx.fillStyle = color.body
   ctx.beginPath()
   ctx.moveTo(cx, e.y + ENEMY_HEIGHT)
@@ -150,10 +159,9 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, frame: number) {
   ctx.closePath()
   ctx.fill()
 
-  // Eyes
   ctx.fillStyle = '#ffff00'
   ctx.shadowColor = '#ffff00'
-  ctx.shadowBlur = 6
+  ctx.shadowBlur = 6 * SHADOW
   ctx.beginPath()
   ctx.arc(cx - 7, cy - 2, 3, 0, Math.PI * 2)
   ctx.fill()
@@ -161,7 +169,6 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, frame: number) {
   ctx.arc(cx + 7, cy - 2, 3, 0, Math.PI * 2)
   ctx.fill()
 
-  // Tank HP indicator
   if (e.kind === 'tank' && e.hp > 1) {
     ctx.fillStyle = 'rgba(255,68,0,0.7)'
     ctx.shadowBlur = 0
@@ -170,7 +177,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, frame: number) {
   }
 
   ctx.shadowBlur = 0
-  void frame // used for potential animation
+  void frame
 }
 
 function drawParticles(ctx: CanvasRenderingContext2D, particles: readonly Particle[]) {
@@ -178,7 +185,7 @@ function drawParticles(ctx: CanvasRenderingContext2D, particles: readonly Partic
     ctx.globalAlpha = p.life / p.maxLife
     ctx.fillStyle = p.color
     ctx.shadowColor = p.color
-    ctx.shadowBlur = 4
+    ctx.shadowBlur = 4 * SHADOW
     ctx.beginPath()
     ctx.arc(p.x, p.y, p.size * (p.life / p.maxLife), 0, Math.PI * 2)
     ctx.fill()
@@ -201,7 +208,7 @@ function drawPowerups(ctx: CanvasRenderingContext2D, powerups: readonly Powerup[
     const color = pColors[p.kind] || pColors.health
 
     ctx.shadowColor = color.glow
-    ctx.shadowBlur = 12
+    ctx.shadowBlur = 12 * SHADOW
     ctx.fillStyle = color.bg
     ctx.beginPath()
     ctx.arc(cx, cy + bob, POWERUP_SIZE / 2, 0, Math.PI * 2)
@@ -216,13 +223,98 @@ function drawPowerups(ctx: CanvasRenderingContext2D, powerups: readonly Powerup[
   }
 }
 
+function drawScorePopups(ctx: CanvasRenderingContext2D, popups: readonly ScorePopup[]) {
+  ctx.font = 'bold 14px "Segoe UI", sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  for (const sp of popups) {
+    ctx.globalAlpha = sp.life
+    ctx.fillStyle = '#ffff00'
+    ctx.shadowColor = '#ffff00'
+    ctx.shadowBlur = isMobile ? 0 : 6
+    ctx.fillText(`+${sp.value}`, sp.x, sp.y)
+  }
+  ctx.globalAlpha = 1
+  ctx.shadowBlur = 0
+}
+
+function drawActivePowerups(ctx: CanvasRenderingContext2D, state: GameState) {
+  const now = performance.now()
+  const bars: { label: string; color: string; pct: number }[] = []
+
+  if (state.rapidFireUntil > now) {
+    bars.push({ label: '\u26A1 RAPID', color: '#ffaa00', pct: (state.rapidFireUntil - now) / 8000 })
+  }
+  if (state.shieldUntil > now) {
+    bars.push({ label: '\uD83D\uDEE1 SHIELD', color: '#00ffc8', pct: (state.shieldUntil - now) / 6000 })
+  }
+
+  if (bars.length === 0) return
+
+  const barW = 100
+  const barH = 8
+  let y = 48
+
+  for (const bar of bars) {
+    const x = 8
+
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'
+    ctx.beginPath()
+    ctx.roundRect(x, y, barW + 4, barH + 14, 4)
+    ctx.fill()
+
+    ctx.font = 'bold 9px "Segoe UI", sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'top'
+    ctx.fillStyle = bar.color
+    ctx.fillText(bar.label, x + 2, y + 1)
+
+    ctx.fillStyle = 'rgba(255,255,255,0.15)'
+    ctx.beginPath()
+    ctx.roundRect(x + 2, y + 12, barW, barH, 3)
+    ctx.fill()
+
+    ctx.fillStyle = bar.color
+    ctx.shadowColor = bar.color
+    ctx.shadowBlur = isMobile ? 0 : 4
+    ctx.beginPath()
+    ctx.roundRect(x + 2, y + 12, barW * Math.max(0, bar.pct), barH, 3)
+    ctx.fill()
+    ctx.shadowBlur = 0
+
+    y += barH + 18
+  }
+}
+
+function drawJoystick(ctx: CanvasRenderingContext2D, joystick: JoystickVisual) {
+  if (!joystick.active) return
+
+  // Base ring
+  ctx.globalAlpha = 0.15
+  ctx.strokeStyle = '#00ffff'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.arc(joystick.baseX, joystick.baseY, 40, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.fillStyle = 'rgba(0,255,255,0.05)'
+  ctx.fill()
+
+  // Thumb
+  ctx.globalAlpha = 0.4
+  ctx.fillStyle = '#00ffff'
+  ctx.beginPath()
+  ctx.arc(joystick.thumbX, joystick.thumbY, 16, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.globalAlpha = 1
+}
+
 function drawHealthBar(ctx: CanvasRenderingContext2D, health: number, maxHealth: number) {
   const barW = 160
   const barH = 10
   const x = CANVAS_WIDTH / 2 - barW / 2
   const y = CANVAS_HEIGHT - 20
 
-  // Background
   ctx.fillStyle = 'rgba(255,0,128,0.2)'
   ctx.strokeStyle = 'rgba(255,0,128,0.6)'
   ctx.lineWidth = 1
@@ -231,12 +323,11 @@ function drawHealthBar(ctx: CanvasRenderingContext2D, health: number, maxHealth:
   ctx.fill()
   ctx.stroke()
 
-  // Fill
   const pct = Math.max(0, health / maxHealth)
   if (pct > 0) {
     const fillColor = pct > 0.5 ? '#00ff66' : pct > 0.25 ? '#ffaa00' : '#ff0044'
     ctx.shadowColor = fillColor
-    ctx.shadowBlur = 8
+    ctx.shadowBlur = 8 * SHADOW
     ctx.fillStyle = fillColor
     ctx.beginPath()
     ctx.roundRect(x + 1, y + 1, (barW - 2) * pct, barH - 2, 4)
@@ -249,7 +340,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.font = 'bold 11px "Segoe UI", sans-serif'
   ctx.textAlign = 'left'
 
-  // Score
+  // Score badge
   ctx.fillStyle = 'rgba(0,0,0,0.5)'
   ctx.beginPath()
   ctx.roundRect(8, 8, 90, 32, 6)
@@ -263,7 +354,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.font = 'bold 13px "Segoe UI", sans-serif'
   ctx.fillText(`${state.score}`, 14, 36)
 
-  // Wave
+  // Wave badge
   ctx.font = 'bold 11px "Segoe UI", sans-serif'
   ctx.fillStyle = 'rgba(0,0,0,0.5)'
   ctx.beginPath()
@@ -278,7 +369,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
   ctx.font = 'bold 13px "Segoe UI", sans-serif'
   ctx.fillText(`${state.wave}`, 112, 36)
 
-  // Best
+  // Best badge
   if (state.bestScore > 0) {
     ctx.font = 'bold 11px "Segoe UI", sans-serif'
     ctx.textAlign = 'right'
@@ -296,8 +387,8 @@ function drawHUD(ctx: CanvasRenderingContext2D, state: GameState) {
     ctx.fillText(`${state.bestScore}`, CANVAS_WIDTH - 14, 36)
   }
 
-  // Health bar
   drawHealthBar(ctx, state.health, state.maxHealth)
+  drawActivePowerups(ctx, state)
 }
 
 function drawWaveText(ctx: CanvasRenderingContext2D, text: string, life: number) {
@@ -313,17 +404,21 @@ function drawWaveText(ctx: CanvasRenderingContext2D, text: string, life: number)
   ctx.textBaseline = 'middle'
   ctx.fillStyle = '#00ffff'
   ctx.shadowColor = '#00ffff'
-  ctx.shadowBlur = 20
+  ctx.shadowBlur = 20 * SHADOW
   ctx.fillText(text, 0, 0)
   ctx.shadowBlur = 0
   ctx.globalAlpha = 1
   ctx.restore()
 }
 
-export function render(ctx: CanvasRenderingContext2D, state: GameState, frame: number) {
+export function render(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  frame: number,
+  joystick?: JoystickVisual,
+) {
   ctx.save()
 
-  // Screen shake
   if (state.shake > 0) {
     const intensity = state.shake * 5
     ctx.translate(
@@ -335,13 +430,16 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, frame: n
   drawBackground(ctx, frame)
 
   if (state.phase === 'playing' || state.phase === 'gameover') {
+    const now = performance.now()
     drawPowerups(ctx, state.powerups, frame)
     drawBullets(ctx, state.bullets)
     state.enemies.forEach(e => drawEnemy(ctx, e, frame))
     drawParticles(ctx, state.particles)
-    drawPlayer(ctx, state.playerX, state.playerY, frame, state.shieldUntil > 0)
+    drawScorePopups(ctx, state.scorePopups)
+    drawPlayer(ctx, state.playerX, state.playerY, frame, state.shieldUntil > now)
     drawHUD(ctx, state)
     drawWaveText(ctx, state.waveText, state.waveTextLife)
+    if (joystick) drawJoystick(ctx, joystick)
   }
 
   ctx.restore()

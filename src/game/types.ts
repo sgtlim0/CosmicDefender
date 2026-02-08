@@ -22,8 +22,8 @@ export const ENEMY_SPEED_PER_WAVE = 0.25
 // ── Game ──
 export const BASE_ENEMIES_PER_WAVE = 4
 export const ENEMIES_PER_WAVE_INC = 2
-export const WAVE_SPAWN_DELAY = 400 // ms per enemy
-export const WAVE_REST_DELAY = 2000 // ms between waves
+export const WAVE_SPAWN_DELAY = 400
+export const WAVE_REST_DELAY = 2000
 export const POWERUP_DROP_CHANCE = 0.12
 export const POWERUP_SPEED = 2
 export const POWERUP_SIZE = 18
@@ -50,7 +50,7 @@ export interface Enemy {
   readonly y: number
   readonly kind: EnemyKind
   readonly hp: number
-  readonly phase: number // for sine movement
+  readonly phase: number
 }
 
 export interface Particle {
@@ -70,6 +70,13 @@ export interface Powerup {
   readonly kind: 'health' | 'rapid' | 'shield'
 }
 
+export interface ScorePopup {
+  readonly x: number
+  readonly y: number
+  readonly value: number
+  readonly life: number
+}
+
 export interface GameState {
   readonly phase: Phase
   readonly playerX: number
@@ -78,6 +85,7 @@ export interface GameState {
   readonly enemies: readonly Enemy[]
   readonly particles: readonly Particle[]
   readonly powerups: readonly Powerup[]
+  readonly scorePopups: readonly ScorePopup[]
   readonly score: number
   readonly bestScore: number
   readonly wave: number
@@ -92,4 +100,5 @@ export interface GameState {
   readonly spawnQueue: number
   readonly spawnTimer: number
   readonly waveRestTimer: number
+  readonly autoFire: boolean
 }

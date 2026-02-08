@@ -3,11 +3,12 @@
 .container {
   width: 100vw;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #0a0015 0%, #1a0033 50%, #0a0015 100%);
-  overflow-x: hidden;
+  overflow: hidden;
   padding: 8px 0;
   position: relative;
 }
@@ -304,84 +305,6 @@
   transform: scale(0.94);
 }
 
-/* ── Mobile Controls ── */
-
-.mobileControls {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  width: 100%;
-  max-width: 400px;
-  padding: 0 8px;
-  margin-top: 4px;
-}
-
-.dpad {
-  display: grid;
-  grid-template-areas:
-    '. up .'
-    'left center right'
-    '. down .';
-  grid-template-columns: 52px 52px 52px;
-  grid-template-rows: 44px 44px 44px;
-  gap: 3px;
-}
-
-.dpadBtn {
-  width: 100%;
-  height: 100%;
-  font-size: 1.1rem;
-  border: 2px solid rgba(0, 255, 255, 0.4);
-  border-radius: 12px;
-  background: rgba(0, 255, 255, 0.12);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #00ffff;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: manipulation;
-  transition: background 0.1s ease;
-  box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
-}
-
-.dpadBtn:active {
-  background: rgba(0, 255, 255, 0.4);
-  box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-  transform: scale(0.92);
-}
-
-.dpadUp { grid-area: up; }
-.dpadDown { grid-area: down; }
-.dpadLeft { grid-area: left; }
-.dpadRight { grid-area: right; }
-
-.fireBtn {
-  width: 72px;
-  height: 72px;
-  font-size: 1.8rem;
-  border: 3px solid rgba(255, 0, 128, 0.5);
-  border-radius: 50%;
-  background: rgba(255, 0, 128, 0.2);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ff0080;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: manipulation;
-  box-shadow: 0 0 20px rgba(255, 0, 128, 0.3);
-  transition: background 0.1s ease, transform 0.1s ease;
-}
-
-.fireBtn:active {
-  background: rgba(255, 0, 128, 0.5);
-  box-shadow: 0 0 30px rgba(255, 0, 128, 0.6);
-  transform: scale(0.9);
-}
-
 /* ── Instructions ── */
 
 .instructions {
@@ -414,24 +337,21 @@
 /* ── Responsive ── */
 
 @media (max-width: 440px) {
+  .container {
+    padding: 0;
+  }
+
   .gameArea {
-    padding: 6px;
-    gap: 6px;
+    padding: 4px;
+    gap: 4px;
+    height: 100vh;
+    height: 100dvh;
+    justify-content: center;
   }
 
   .canvasWrap {
-    max-width: calc(100vw - 24px);
-  }
-
-  .dpad {
-    grid-template-columns: 46px 46px 46px;
-    grid-template-rows: 40px 40px 40px;
-  }
-
-  .fireBtn {
-    width: 64px;
-    height: 64px;
-    font-size: 1.5rem;
+    max-width: calc(100vw - 8px);
+    border-radius: 8px;
   }
 
   .gameTitle {
@@ -440,25 +360,7 @@
 }
 
 @media (max-height: 700px) {
-  .dpad {
-    grid-template-columns: 44px 44px 44px;
-    grid-template-rows: 36px 36px 36px;
-    gap: 2px;
-  }
-
-  .fireBtn {
-    width: 60px;
-    height: 60px;
-  }
-
   .instructions {
     padding: 4px 8px;
-  }
-}
-
-/* Desktop: hide mobile controls */
-@media (min-width: 769px) {
-  .mobileControls {
-    display: none;
   }
 }

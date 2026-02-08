@@ -36,6 +36,7 @@ function createInitialState(): GameState {
     enemies: [],
     particles: [],
     powerups: [],
+    scorePopups: [],
     score: 0,
     bestScore: loadBestScore(),
     wave: 0,
@@ -50,6 +51,7 @@ function createInitialState(): GameState {
     spawnQueue: 0,
     spawnTimer: 0,
     waveRestTimer: 0,
+    autoFire: 'ontouchstart' in window,
   }
 }
 
@@ -92,10 +94,18 @@ function randomPowerupKind(): Powerup['kind'] {
   return 'shield'
 }
 
+export interface InputState {
+  keys: Record<string, boolean>
+  shooting: boolean
+  joystickX: number
+  joystickY: number
+  joystickActive: boolean
+}
+
 export interface CosmicDefenderAPI {
   readonly state: React.RefObject<GameState>
   readonly frame: React.RefObject<number>
-  readonly inputRef: React.RefObject<{ keys: Record<string, boolean>; shooting: boolean }>
+  readonly inputRef: React.RefObject<InputState>
   readonly startGame: () => void
   readonly restartGame: () => void
 }
@@ -107,7 +117,13 @@ export function useCosmicDefender(
   const frameRef = useRef(0)
   const animRef = useRef(0)
   const lastTickRef = useRef(0)
-  const inputRef = useRef({ keys: {} as Record<string, boolean>, shooting: false })
+  const inputRef = useRef<InputState>({
+    keys: {},
+    shooting: false,
+    joystickX: 0,
+    joystickY: 0,
+    joystickActive: false,
+  })
 
   const notifyUI = useCallback(() => {
     const s = stateRef.current
@@ -124,25 +140,44 @@ export function useCosmicDefender(
     const s = stateRef.current
     if (s.phase !== 'playing') return
 
-    const dt = Math.min(now - lastTickRef.current, 32) // cap at ~30fps min
+    const dt = Math.min(now - lastTickRef.current, 32)
     lastTickRef.current = now
 
     const input = inputRef.current
     let { playerX, playerY } = s
 
-    // ── Player movement ──
-    if (input.keys['ArrowLeft'] || input.keys['a'] || input.keys['A']) playerX -= PLAYER_SPEED
-    if (input.keys['ArrowRight'] || input.keys['d'] || input.keys['D']) playerX += PLAYER_SPEED
-    if (input.keys['ArrowUp'] || input.keys['w'] || input.keys['W']) playerY -= PLAYER_SPEED
-    if (input.keys['ArrowDown'] || input.keys['s'] || input.keys['S']) playerY += PLAYER_SPEED
+    // ── Player movement (keyboard) ──
+    let moveX = 0
+    let moveY = 0
+    if (input.keys['ArrowLeft'] || input.keys['a'] || input.keys['A']) moveX -= 1
+    if (input.keys['ArrowRight'] || input.keys['d'] || input.keys['D']) moveX += 1
+    if (input.keys['ArrowUp'] || input.keys['w'] || input.keys['W']) moveY -= 1
+    if (input.keys['ArrowDown'] || input.keys['s'] || input.keys['S']) moveY += 1
+
+    // ── Joystick input ──
+    if (input.joystickActive) {
+      moveX += input.joystickX
+      moveY += input.joystickY
+    }
+
+    // Normalize diagonal movement
+    const mag = Math.sqrt(moveX * moveX + moveY * moveY)
+    if (mag > 1) {
+      moveX /= mag
+      moveY /= mag
+    }
+
+    playerX += moveX * PLAYER_SPEED
+    playerY += moveY * PLAYER_SPEED
     playerX = Math.max(0, Math.min(CANVAS_WIDTH - PLAYER_WIDTH, playerX))
     playerY = Math.max(0, Math.min(CANVAS_HEIGHT - PLAYER_HEIGHT, playerY))
 
-    // ── Shooting ──
+    // ── Shooting (auto-fire on mobile, space on desktop) ──
     let newBullets = [...s.bullets]
     let lastShot = s.lastShot
     const cooldown = s.rapidFireUntil > now ? SHOOT_COOLDOWN / 3 : SHOOT_COOLDOWN
-    if ((input.keys[' '] || input.shooting) && now - lastShot > cooldown) {
+    const shouldShoot = input.keys[' '] || input.shooting || s.autoFire
+    if (shouldShoot && now - lastShot > cooldown) {
       newBullets.push({ x: playerX + PLAYER_WIDTH / 2, y: playerY - 4 })
       if (s.rapidFireUntil > now) {
         newBullets.push({ x: playerX + 6, y: playerY + 4 })
@@ -188,6 +223,7 @@ export function useCosmicDefender(
     let newScore = s.score
     let newParticles = [...s.particles]
     let newPowerups = [...s.powerups]
+    let newScorePopups = [...s.scorePopups]
     const survivingBullets: Bullet[] = []
     const hitEnemyIndices = new Set<number>()
 
@@ -204,10 +240,11 @@ export function useCosmicDefender(
           const newHp = e.hp - 1
           if (newHp <= 0) {
             hitEnemyIndices.add(ei)
-            newScore += SCORE_PER_KILL * (e.kind === 'tank' ? 3 : e.kind === 'fast' ? 2 : 1)
+            const pts = SCORE_PER_KILL * (e.kind === 'tank' ? 3 : e.kind === 'fast' ? 2 : 1)
+            newScore += pts
             newParticles.push(...createExplosion(e.x + ENEMY_WIDTH / 2, e.y + ENEMY_HEIGHT / 2, '#ffff00', 20))
+            newScorePopups.push({ x: e.x + ENEMY_WIDTH / 2, y: e.y, value: pts, life: 1 })
             playEnemyDie()
-            // Powerup drop
             if (Math.random() < POWERUP_DROP_CHANCE) {
               newPowerups.push({ x: e.x, y: e.y, kind: randomPowerupKind() })
             }
@@ -224,14 +261,14 @@ export function useCosmicDefender(
 
     newEnemies = newEnemies.filter((_, i) => !hitEnemyIndices.has(i))
 
-    // ── Enemy-player collisions + off-screen ──
+    // ── Enemy-player collisions ──
     let health = s.health
     let shake = Math.max(s.shake - 0.03, 0)
     const shielded = s.shieldUntil > now
     const survivingEnemies: Enemy[] = []
 
     for (const e of newEnemies) {
-      if (e.y > CANVAS_HEIGHT + 50) continue // off screen
+      if (e.y > CANVAS_HEIGHT + 50) continue
       if (rectCollision(playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT, e.x, e.y, ENEMY_WIDTH, ENEMY_HEIGHT)) {
         if (!shielded) {
           health -= COLLISION_DAMAGE
@@ -273,6 +310,11 @@ export function useCosmicDefender(
       }))
       .filter(p => p.life > 0)
 
+    // ── Update score popups ──
+    newScorePopups = newScorePopups
+      .map(sp => ({ ...sp, y: sp.y - 1.2, life: sp.life - 0.02 }))
+      .filter(sp => sp.life > 0)
+
     // ── Wave completion ──
     if (survivingEnemies.length === 0 && spawnQueue === 0 && waveRestTimer === 0) {
       waveRestTimer = now
@@ -288,13 +330,10 @@ export function useCosmicDefender(
       playWave()
     }
 
-    // ── Wave text decay ──
     if (waveTextLife > 0) waveTextLife--
 
-    // ── Best score ──
     const newBest = Math.max(newScore, s.bestScore)
 
-    // ── Death check ──
     let phase: Phase = 'playing'
     if (health <= 0) {
       health = 0
@@ -313,6 +352,7 @@ export function useCosmicDefender(
       enemies: survivingEnemies,
       particles: newParticles,
       powerups: survivingPowerups,
+      scorePopups: newScorePopups,
       score: newScore,
       bestScore: newBest,
       wave,
@@ -329,21 +369,23 @@ export function useCosmicDefender(
     }
 
     notifyUI()
-    void dt // frame-rate independent logic could use this
+    void dt
   }, [notifyUI])
 
   const loop = useCallback((timestamp: number) => {
     frameRef.current++
     tick(timestamp)
 
-    // Decay effects when dead
     const s = stateRef.current
-    if (s.phase === 'gameover' && s.particles.length > 0) {
+    if (s.phase === 'gameover' && (s.particles.length > 0 || s.scorePopups.length > 0)) {
       stateRef.current = {
         ...s,
         particles: s.particles
           .map(p => ({ ...p, x: p.x + p.vx, y: p.y + p.vy, vy: p.vy + 0.08, life: p.life - 0.025 }))
           .filter(p => p.life > 0),
+        scorePopups: s.scorePopups
+          .map(sp => ({ ...sp, y: sp.y - 1.2, life: sp.life - 0.02 }))
+          .filter(sp => sp.life > 0),
         shake: Math.max(s.shake - 0.02, 0),
       }
     }
